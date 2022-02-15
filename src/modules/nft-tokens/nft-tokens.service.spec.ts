@@ -2,7 +2,7 @@ import { ConfigModule } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import { NFTTokensService } from '../nft-tokens/nft-tokens.service';
 import { getModelToken } from '@nestjs/mongoose';
-import { NFTTokens, NFTTokensDocument } from './schemas/nft-tokens.schema';
+import { NFTToken, NFTTokensDocument } from './schemas/nft-tokens.schema';
 import { Model } from 'mongoose';
 import { NFTTokensDTO } from './dto/nft-tokens.dto';
 
@@ -15,7 +15,7 @@ describe('NFT Metadata', () => {
       providers: [
         NFTTokensService,
         {
-          provide: getModelToken(NFTTokens.name),
+          provide: getModelToken(NFTToken.name),
           useValue: {
             updateOne: jest.fn(),
           },
@@ -24,7 +24,7 @@ describe('NFT Metadata', () => {
     }).compile();
 
     service = module.get<NFTTokensService>(NFTTokensService);
-    model = module.get<Model<NFTTokensDocument>>(getModelToken(NFTTokens.name));
+    model = module.get<Model<NFTTokensDocument>>(getModelToken(NFTToken.name));
   });
 
   afterEach(() => {

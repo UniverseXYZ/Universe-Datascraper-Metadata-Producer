@@ -1,12 +1,12 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-import { NFTTokens, NFTTokensSchema } from './schemas/nft-tokens.schema';
+import { NFTToken, NFTTokensSchema } from './schemas/nft-tokens.schema';
 import { NFTTokensService } from './nft-tokens.service';
 
 @Module({
   imports: [
     MongooseModule.forFeature([
-      { name: NFTTokens.name, schema: NFTTokensSchema },
+      { name: NFTToken.name, schema: NFTTokensSchema },
     ]),
   ],
   providers: [NFTTokensService],
