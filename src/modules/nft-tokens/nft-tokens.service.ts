@@ -25,6 +25,18 @@ export class NFTTokensService {
     });
   }
 
+  async findUnprocessed() {
+    return await this.nftTokensModel.find(
+      {
+        sentAt: null,
+      },
+      {},
+      {
+        limit: 10,
+      },
+    );
+  }
+
   async findFailedOne() {
     return await this.nftTokensModel.findOne({
       sentAt: { $ne: null },
@@ -57,6 +69,21 @@ export class NFTTokensService {
       {
         needToRefresh,
       },
+    );
+  }
+
+  public async markAsProcessedBatch(tokens: NFTToken[]) {
+    await this.nftTokensModel.bulkWrite(
+      tokens.map((x) => ({
+        updateOne: {
+          filter: {
+            contractAddress: x.contractAddress,
+            tokenId: x.tokenId,
+          },
+          update: { sentAt: new Date() },
+          upsert: true,
+        },
+      })),
     );
   }
 }
