@@ -38,46 +38,50 @@ export class SqsProducerService implements OnModuleInit, SqsProducerHandler {
    * #2. send to queue
    * #3. mark token as processed
    */
-  @Cron(CronExpression.EVERY_5_SECONDS)
+  @Cron('*/3 * * * * *')
   public async checkCollection() {
     // Check if there is any unprocessed collection
-    const unprocessed = await this.nftTokenService.findUnprocessedOne();
-    if (!unprocessed) {
+    const unprocessed = await this.nftTokenService.findUnprocessed();
+    if (!unprocessed || unprocessed.length === 0) {
       return;
     }
     this.logger.log(
-      `[CRON Token] Recevied new token: ${unprocessed.contractAddress} - ${unprocessed.tokenId}`,
+      `[CRON Token] Find ${unprocessed.length} unprocessed tokens`,
     );
 
     // Prepare queue messages and sent as batch
-    const id = unprocessed.contractAddress + unprocessed.tokenId;
-    const message: Message<QueueMessageBody> = {
-      id,
-      body: {
-        contractAddress: unprocessed.contractAddress,
-        contractType: unprocessed.tokenType,
-        tokenId: unprocessed.tokenId,
-      },
-      groupId: unprocessed.contractAddress,
-      deduplicationId: id,
-    };
-    await this.sendMessage(message);
+    const messages = unprocessed.map((token, index) => {
+      this.logger.log(
+        `[CRON Token] Preparing token ${token.contractAddress} - ${token.tokenId}`,
+      );
+      const id = `${token.contractAddress}-${token.tokenId.substring(
+        0,
+        30,
+      )}-${index}`;
+      const message: Message<QueueMessageBody> = {
+        id,
+        body: {
+          contractAddress: token.contractAddress,
+          contractType: token.tokenType,
+          tokenId: token.tokenId,
+        },
+        groupId: token.contractAddress,
+        deduplicationId: id,
+      };
+      return message;
+    });
+    const queueResults = await this.sendMessage(messages);
     this.logger.log(
-      `[CRON Token] Successfully sent messages for token ${unprocessed.contractAddress} - ${unprocessed.tokenId}`,
+      `[CRON Token] Successfully sent ${queueResults.length} messages for metadata reterival`,
     );
 
     // Mark this token
-    await this.nftTokenService.markAsProcessed(
-      unprocessed.contractAddress,
-      unprocessed.tokenId,
-    );
-    this.logger.log(
-      `[CRON Token] Successfully processed token ${unprocessed.contractAddress} - ${unprocessed.tokenId}`,
-    );
+    await this.nftTokenService.markAsProcessedBatch(unprocessed);
+    this.logger.log(`[CRON Token] Successfully marked tokens as processed`);
   }
 
   /**
-   * The needToRefresh flag is set to true by users from API 
+   * The needToRefresh flag is set to true by users from API
    * #1. check if there is any token which needToRefresh is true
    * #2. send to queue
    * #3. mark needToRefresh to false
@@ -91,7 +95,7 @@ export class SqsProducerService implements OnModuleInit, SqsProducerHandler {
       return;
     }
     this.logger.log(
-      `[CRON Token] Recevied new token: ${needToRefreshToken.contractAddress} - ${needToRefreshToken.tokenId}`,
+      `[CRON Token - Hard Refresh]: ${needToRefreshToken.contractAddress} - ${needToRefreshToken.tokenId}`,
     );
 
     // Prepare queue messages and sent as batch
@@ -108,7 +112,7 @@ export class SqsProducerService implements OnModuleInit, SqsProducerHandler {
     };
     await this.sendMessage(message);
     this.logger.log(
-      `[CRON Token] Successfully sent messages for token ${needToRefreshToken.contractAddress} - ${needToRefreshToken.tokenId}`,
+      `[CRON Token - Hard Refresh] Successfully sent messages for token ${needToRefreshToken.contractAddress} - ${needToRefreshToken.tokenId}`,
     );
 
     // Mark needToRefresh to false
@@ -118,14 +122,14 @@ export class SqsProducerService implements OnModuleInit, SqsProducerHandler {
       false,
     );
     this.logger.log(
-      `[CRON Token] Successfully processed token ${needToRefreshToken.contractAddress} - ${needToRefreshToken.tokenId}`,
+      `[CRON Token - Hard Refresh] Successfully processed token ${needToRefreshToken.contractAddress} - ${needToRefreshToken.tokenId}`,
     );
   }
 
   /**
    * This is an auto refresh metadata job runs once a day at midnight.
    * This job scans the token's sendAt and metadata fields.
-   * If the token's metadata failed to fetch, it will send a message to queue to refresh the metadata. 
+   * If the token's metadata failed to fetch, it will send a message to queue to refresh the metadata.
    */
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   public async checkToRefetchMetadata() {
@@ -135,7 +139,7 @@ export class SqsProducerService implements OnModuleInit, SqsProducerHandler {
       return;
     }
     this.logger.log(
-      `[CRON Token] Recevied metadata fetched failed token: ${failedOne.contractAddress} - ${failedOne.tokenId}`,
+      `[CRON Token - ReSync] Recevied metadata fetched failed token: ${failedOne.contractAddress} - ${failedOne.tokenId}`,
     );
 
     // Prepare queue messages and sent as batch
@@ -152,7 +156,7 @@ export class SqsProducerService implements OnModuleInit, SqsProducerHandler {
     };
     await this.sendMessage(message);
     this.logger.log(
-      `[CRON Token] Successfully sent messages for token ${failedOne.contractAddress} - ${failedOne.tokenId}`,
+      `[CRON Token - ReSync] Successfully sent messages for token ${failedOne.contractAddress} - ${failedOne.tokenId}`,
     );
 
     // Mark this token
@@ -161,7 +165,7 @@ export class SqsProducerService implements OnModuleInit, SqsProducerHandler {
       failedOne.tokenId,
     );
     this.logger.log(
-      `[CRON Token] Successfully processed token ${failedOne.contractAddress} - ${failedOne.tokenId}`,
+      `[CRON Token - ReSync] Successfully processed token ${failedOne.contractAddress} - ${failedOne.tokenId}`,
     );
   }
 
