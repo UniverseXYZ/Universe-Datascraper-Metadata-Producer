@@ -29,6 +29,7 @@ export class NFTTokensService {
     return await this.nftTokensModel.find(
       {
         sentAt: null,
+        processingSentAt: null,
       },
       {},
       {
@@ -81,7 +82,22 @@ export class NFTTokensService {
             tokenId: x.tokenId,
           },
           update: { sentAt: new Date() },
-          upsert: true,
+          upsert: false,
+        },
+      })),
+    );
+  }
+
+  public async markAsProcessingBatch(tokens: NFTToken[]) {
+    await this.nftTokensModel.bulkWrite(
+      tokens.map((x) => ({
+        updateOne: {
+          filter: {
+            contractAddress: x.contractAddress,
+            tokenId: x.tokenId,
+          },
+          update: { processingSentAt: new Date() },
+          upsert: false,
         },
       })),
     );
