@@ -54,10 +54,9 @@ export class SqsProducerService implements OnModuleInit, SqsProducerHandler {
       this.logger.log(
         `[CRON Token] Preparing token ${token.contractAddress} - ${token.tokenId}`,
       );
-      const id = `${token.contractAddress}-${token.tokenId.substring(
-        0,
-        30,
-      )}-${index}`;
+      const id = `${token.contractAddress}-${token.tokenId
+        .replace(/\D/g, '')
+        .substring(0, 30)}-${index}`;
       const message: Message<QueueMessageBody> = {
         id,
         body: {
