@@ -48,34 +48,38 @@ export class SqsProducerService implements OnModuleInit, SqsProducerHandler {
     this.logger.log(
       `[CRON Token] Find ${unprocessed.length} unprocessed tokens`,
     );
+    await this.nftTokenService.markAsProcessingBatch(unprocessed);
 
     // Prepare queue messages and sent as batch
-    const messages = unprocessed.map((token, index) => {
-      this.logger.log(
-        `[CRON Token] Preparing token ${token.contractAddress} - ${token.tokenId}`,
-      );
-      const id = `${token.contractAddress}-${token.tokenId
-        .replace(/\D/g, '')
-        .substring(0, 30)}-${index}`;
+    const processedTokens = [];
+    for (const token of unprocessed) {
+      const id = token.contractAddress + token.tokenId;
       const message: Message<QueueMessageBody> = {
         id,
         body: {
           contractAddress: token.contractAddress,
-          contractType: token.tokenType,
           tokenId: token.tokenId,
+          contractType: token.tokenType,
         },
         groupId: token.contractAddress,
         deduplicationId: id,
       };
-      return message;
-    });
-    const queueResults = await this.sendMessage(messages);
-    this.logger.log(
-      `[CRON Token] Successfully sent ${queueResults.length} messages for metadata reterival`,
-    );
+      try {
+        await this.sendMessage(message);
+        processedTokens.push(token);
+        this.logger.log(
+          `[CRON Token] Successfully sent messages for metadata reterival for token ${token.contractAddress} - ${token.tokenId}`,
+        );
+      } catch (err) {
+        this.logger.error(
+          `[CRON Token] Failed to send message for token ${token.contractAddress} - ${token.tokenId}`,
+        );
+        this.logger.error(err.message);
+      }
+    }
 
     // Mark this token
-    await this.nftTokenService.markAsProcessedBatch(unprocessed);
+    await this.nftTokenService.markAsProcessedBatch(processedTokens);
     this.logger.log(`[CRON Token] Successfully marked tokens as processed`);
   }
 
