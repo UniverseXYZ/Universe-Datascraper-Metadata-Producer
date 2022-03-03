@@ -65,7 +65,7 @@ export class SqsProducerService implements OnModuleInit, SqsProducerHandler {
           tokenId: token.tokenId,
           contractType: token.tokenType,
         },
-        groupId: token.contractAddress,
+        groupId: id,
         deduplicationId: id,
       };
       try {
@@ -106,7 +106,9 @@ export class SqsProducerService implements OnModuleInit, SqsProducerHandler {
     );
 
     // Prepare queue messages and sent as batch
-    const id = needToRefreshToken.contractAddress + needToRefreshToken.tokenId;
+    const id = `${
+      needToRefreshToken.contractAddress
+    }-${needToRefreshToken.tokenId.substring(0, 30)}`;
     const message: Message<QueueMessageBody> = {
       id,
       body: {
@@ -114,7 +116,7 @@ export class SqsProducerService implements OnModuleInit, SqsProducerHandler {
         contractType: needToRefreshToken.tokenType,
         tokenId: needToRefreshToken.tokenId,
       },
-      groupId: needToRefreshToken.contractAddress,
+      groupId: id,
       deduplicationId: id,
     };
     await this.sendMessage(message);
@@ -126,7 +128,6 @@ export class SqsProducerService implements OnModuleInit, SqsProducerHandler {
     await this.nftTokenService.updateNeedToRefreshFlag(
       needToRefreshToken.contractAddress,
       needToRefreshToken.tokenId,
-      false,
     );
     this.logger.log(
       `[CRON Token - Hard Refresh] Successfully processed token ${needToRefreshToken.contractAddress} - ${needToRefreshToken.tokenId}`,
@@ -137,6 +138,7 @@ export class SqsProducerService implements OnModuleInit, SqsProducerHandler {
    * This is an auto refresh metadata job runs once a day at midnight.
    * This job scans the token's sendAt and metadata fields.
    * If the token's metadata failed to fetch, it will send a message to queue to refresh the metadata.
+   * TODO: to update to use batch
    */
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   public async checkToRefetchMetadata() {
@@ -150,7 +152,10 @@ export class SqsProducerService implements OnModuleInit, SqsProducerHandler {
     );
 
     // Prepare queue messages and sent as batch
-    const id = failedOne.contractAddress + failedOne.tokenId;
+    const id = `${failedOne.contractAddress}-${failedOne.tokenId.substring(
+      0,
+      30,
+    )}`;
     const message: Message<QueueMessageBody> = {
       id,
       body: {
@@ -158,7 +163,7 @@ export class SqsProducerService implements OnModuleInit, SqsProducerHandler {
         contractType: failedOne.tokenType,
         tokenId: failedOne.tokenId,
       },
-      groupId: failedOne.contractAddress,
+      groupId: id,
       deduplicationId: id,
     };
     await this.sendMessage(message);

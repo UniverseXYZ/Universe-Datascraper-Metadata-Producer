@@ -63,12 +63,19 @@ export class NFTTokensService {
   public async updateNeedToRefreshFlag(
     contractAddress: string,
     tokenId: string,
-    needToRefresh: boolean,
   ) {
+    // Update needToRefresh flag to false
+    // Trigger Mediafile to be updated by setting sentForMediaAt to null and remove metadata, externalDomainViewUrl and alternativeMediaFiles
     await this.nftTokensModel.updateOne(
       { contractAddress, tokenId },
       {
-        needToRefresh,
+        needToRefresh: false,
+        $unset: {
+          metadata: '',
+          externalDomainViewUrl: '',
+          alternativeMediaFiles: '',
+          sentForMediaAt: '',
+        },
       },
     );
   }
