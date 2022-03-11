@@ -45,6 +45,17 @@ export class NFTTokensService {
     });
   }
 
+  async findFailed() {
+    return await this.nftTokensModel.find({
+      sentAt: { $ne: null },
+      metadata: null,
+    },
+    {},
+    {
+      limit: 100
+    });
+  }
+
   public async markAsProcessed(contractAddress: string, tokenId: string) {
     await this.nftTokensModel.updateOne(
       { contractAddress, tokenId },

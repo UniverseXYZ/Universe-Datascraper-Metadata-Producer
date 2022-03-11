@@ -140,45 +140,50 @@ export class SqsProducerService implements OnModuleInit, SqsProducerHandler {
    * If the token's metadata failed to fetch, it will send a message to queue to refresh the metadata.
    * TODO: to update to use batch
    */
-  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+  @Cron(CronExpression.EVERY_MINUTE)
   public async checkToRefetchMetadata() {
     // Check if there is any failed collection
-    const failedOne = await this.nftTokenService.findFailedOne();
-    if (!failedOne) {
+    const failed = await this.nftTokenService.findFailed();
+    if (!failed || failed.length === 0) {
       return;
     }
     this.logger.log(
-      `[CRON Token - ReSync] Recevied metadata fetched failed token: ${failedOne.contractAddress} - ${failedOne.tokenId}`,
+      `[CRON Token - ReSync] Find ${failed.length} failed tokens`,
     );
+    for(const failedOne of failed) {
+      this.logger.log(
+        `[CRON Token - ReSync] Recevied metadata fetched failed token: ${failedOne.contractAddress} - ${failedOne.tokenId}`,
+      );
 
-    // Prepare queue messages and sent as batch
-    const id = `${failedOne.contractAddress}-${failedOne.tokenId.substring(
-      0,
-      30,
-    )}`;
-    const message: Message<QueueMessageBody> = {
-      id,
-      body: {
-        contractAddress: failedOne.contractAddress,
-        contractType: failedOne.tokenType,
-        tokenId: failedOne.tokenId,
-      },
-      groupId: id,
-      deduplicationId: id,
-    };
-    await this.sendMessage(message);
-    this.logger.log(
-      `[CRON Token - ReSync] Successfully sent messages for token ${failedOne.contractAddress} - ${failedOne.tokenId}`,
-    );
+      // Prepare queue messages and sent as batch
+      const id = `${failedOne.contractAddress}-${failedOne.tokenId.substring(
+        0,
+        30,
+      )}`;
+      const message: Message<QueueMessageBody> = {
+        id,
+        body: {
+          contractAddress: failedOne.contractAddress,
+          contractType: failedOne.tokenType,
+          tokenId: failedOne.tokenId,
+        },
+        groupId: id,
+        deduplicationId: id,
+      };
+      await this.sendMessage(message);
+      this.logger.log(
+        `[CRON Token - ReSync] Successfully sent messages for token ${failedOne.contractAddress} - ${failedOne.tokenId}`,
+      );
 
-    // Mark this token
-    await this.nftTokenService.markAsProcessed(
-      failedOne.contractAddress,
-      failedOne.tokenId,
-    );
-    this.logger.log(
-      `[CRON Token - ReSync] Successfully processed token ${failedOne.contractAddress} - ${failedOne.tokenId}`,
-    );
+      // Mark this token
+      await this.nftTokenService.markAsProcessed(
+        failedOne.contractAddress,
+        failedOne.tokenId,
+      );
+      this.logger.log(
+        `[CRON Token - ReSync] Successfully processed token ${failedOne.contractAddress} - ${failedOne.tokenId}`,
+      );
+    }
   }
 
   async sendMessage<T = any>(payload: Message<T> | Message<T>[]) {
