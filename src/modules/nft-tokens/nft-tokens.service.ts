@@ -33,7 +33,7 @@ export class NFTTokensService {
       },
       {},
       {
-        limit: 100
+        limit: 20
       },
     );
   }
