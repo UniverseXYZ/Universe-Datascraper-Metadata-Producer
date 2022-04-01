@@ -13,8 +13,9 @@ import { NFTTokensService } from '../nft-tokens/nft-tokens.service';
 @Injectable()
 export class SqsProducerService implements OnModuleInit, SqsProducerHandler {
   public sqsProducer: Producer;
+  public source: string;
   private readonly logger = new Logger(SqsProducerService.name);
-
+  
   constructor(
     private configService: ConfigService,
     private readonly nftTokenService: NFTTokensService,
@@ -31,6 +32,7 @@ export class SqsProducerService implements OnModuleInit, SqsProducerHandler {
       queueUrl: this.configService.get('aws.queueUrl'),
       sqs: new AWS.SQS(),
     });
+    this.source = this.configService.get('source');
   }
 
   /**
@@ -41,7 +43,7 @@ export class SqsProducerService implements OnModuleInit, SqsProducerHandler {
   @Cron('*/5 * * * * *')
   public async checkCollection() {
     // Check if there is any unprocessed collection
-    const unprocessed = await this.nftTokenService.findUnprocessed();
+    const unprocessed = await this.nftTokenService.findUnprocessed(this.source);
     if (!unprocessed || unprocessed.length === 0) {
       return;
     }
