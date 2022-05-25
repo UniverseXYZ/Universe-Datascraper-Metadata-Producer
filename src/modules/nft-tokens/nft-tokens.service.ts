@@ -66,18 +66,18 @@ export class NFTTokensService {
     tokenId: string,
   ) {
     // Update needToRefresh flag to false
-    // Trigger Mediafile to be updated by setting sentForMediaAt to null and
-    // remove metadata, externalDomainViewUrl and alternativeMediaFiles
+    // This used to unset metadata and related values however this had unwanted
+    // UX where metadata was lost in the UI until the refresh had been completed
+    // and this was deemed unacceptable. So now we leave metadata and update it
+    // in place. This requires an additional flag be set on the record MetadataConsumer
+    // to indicate that the metadata refresh is complete and its new values may
+    // be used to update the media files. See m-4589
+    //
     await this.nftTokensModel.updateOne(
       { contractAddress, tokenId },
       {
         needToRefresh: false,
         sentForMediaAt: null,
-        $unset: {
-          metadata: '',
-          externalDomainViewUrl: '',
-          alternativeMediaFiles: '',
-        },
       },
     );
   }
