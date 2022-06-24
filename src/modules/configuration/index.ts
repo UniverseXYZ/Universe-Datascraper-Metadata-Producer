@@ -5,6 +5,10 @@ export default () => ({
   port: process.env.APP_PORT,
   app_env: process.env.APP_ENV,
   ethereum_network: process.env.ETHEREUM_NETWORK,
+  ethereum_quorum: process.env.ETHEREUM_QUORUM,
+  alchemy_token: process.env.ALCHEMY_TOKEN,
+  chainstack_url: process.env.CHAINSTACK_URL,
+  quicknode_url: process.env.QUICKNODE_URL,
   session_secret: process.env.SESSION_SECRET,
   source: process.env.SOURCE,
   infura: {
