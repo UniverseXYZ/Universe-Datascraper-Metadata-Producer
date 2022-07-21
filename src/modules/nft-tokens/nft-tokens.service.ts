@@ -39,10 +39,11 @@ export class NFTTokensService {
     );
   }
 
-  async findFailedOne() {
-    return await this.nftTokensModel.findOne({
+  async findFailedOnes(source: string) {
+    return await this.nftTokensModel.find({
       sentAt: { $ne: null },
       metadata: null,
+      source
     });
   }
 
@@ -55,9 +56,10 @@ export class NFTTokensService {
     );
   }
 
-  async findNeedToRefreshToken() {
-    return await this.nftTokensModel.findOne({
+  async findNeedToRefreshTokens(source: string) {
+    return await this.nftTokensModel.find({
       needToRefresh: true,
+      source
     });
   }
 

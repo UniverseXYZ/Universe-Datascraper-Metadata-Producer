@@ -100,42 +100,49 @@ export class SqsProducerService implements OnModuleInit, SqsProducerHandler {
   @Cron(CronExpression.EVERY_MINUTE)
   public async checkNeedToRefreshTokens() {
     // Check if there is any needToRefresh Token
-    const needToRefreshToken =
-      await this.nftTokenService.findNeedToRefreshToken();
-    if (!needToRefreshToken) {
+    const needToRefreshTokens =
+      await this.nftTokenService.findNeedToRefreshTokens(this.source);
+
+    if (!needToRefreshTokens || !needToRefreshTokens.length) {
+      this.logger.log(`[CRON Token - Hard Refresh]: No tokens to refresh`)
       return;
     }
-    this.logger.log(
-      `[CRON Token - Hard Refresh]: ${needToRefreshToken.contractAddress} - ${needToRefreshToken.tokenId}`,
-    );
 
-    // Prepare queue messages and sent as batch
-    const id = `${
-      needToRefreshToken.contractAddress
-    }-${needToRefreshToken.tokenId.substring(0, 30)}`;
-    const message: Message<QueueMessageBody> = {
-      id,
-      body: {
-        contractAddress: needToRefreshToken.contractAddress,
-        contractType: needToRefreshToken.tokenType,
-        tokenId: needToRefreshToken.tokenId,
-      },
-      groupId: id,
-      deduplicationId: id,
-    };
-    await this.sendMessage(message);
-    this.logger.log(
-      `[CRON Token - Hard Refresh] Successfully sent messages for token ${needToRefreshToken.contractAddress} - ${needToRefreshToken.tokenId}`,
-    );
-
-    // Mark needToRefresh to false
-    await this.nftTokenService.updateNeedToRefreshFlag(
-      needToRefreshToken.contractAddress,
-      needToRefreshToken.tokenId,
-    );
-    this.logger.log(
-      `[CRON Token - Hard Refresh] Successfully processed token ${needToRefreshToken.contractAddress} - ${needToRefreshToken.tokenId}`,
-    );
+    for (let i = 0; i < needToRefreshTokens.length; i++) {
+      const needToRefreshToken = needToRefreshTokens[i];
+      
+      this.logger.log(
+        `[CRON Token - Hard Refresh]: ${needToRefreshToken.contractAddress} - ${needToRefreshToken.tokenId}`,
+      );
+  
+      // Prepare queue messages and sent as batch
+      const id = `${
+        needToRefreshToken.contractAddress
+      }-${needToRefreshToken.tokenId.substring(0, 30)}`;
+      const message: Message<QueueMessageBody> = {
+        id,
+        body: {
+          contractAddress: needToRefreshToken.contractAddress,
+          contractType: needToRefreshToken.tokenType,
+          tokenId: needToRefreshToken.tokenId,
+        },
+        groupId: id,
+        deduplicationId: id,
+      };
+      await this.sendMessage(message);
+      this.logger.log(
+        `[CRON Token - Hard Refresh] Successfully sent messages for token ${needToRefreshToken.contractAddress} - ${needToRefreshToken.tokenId}`,
+      );
+  
+      // Mark needToRefresh to false
+      await this.nftTokenService.updateNeedToRefreshFlag(
+        needToRefreshToken.contractAddress,
+        needToRefreshToken.tokenId,
+      );
+      this.logger.log(
+        `[CRON Token - Hard Refresh] Successfully processed token ${needToRefreshToken.contractAddress} - ${needToRefreshToken.tokenId}`,
+      );
+    }
   }
 
   /**
@@ -147,42 +154,49 @@ export class SqsProducerService implements OnModuleInit, SqsProducerHandler {
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   public async checkToRefetchMetadata() {
     // Check if there is any failed collection
-    const failedOne = await this.nftTokenService.findFailedOne();
-    if (!failedOne) {
+    const failedOnes = await this.nftTokenService.findFailedOnes(this.source);
+    if (!failedOnes || !failedOnes.length) {
+      this.logger.log(
+        `[CRON Token - ReSync] No tokens to refresh`,
+      );  
       return;
     }
-    this.logger.log(
-      `[CRON Token - ReSync] Recevied metadata fetched failed token: ${failedOne.contractAddress} - ${failedOne.tokenId}`,
-    );
-
-    // Prepare queue messages and sent as batch
-    const id = `${failedOne.contractAddress}-${failedOne.tokenId.substring(
-      0,
-      30,
-    )}`;
-    const message: Message<QueueMessageBody> = {
-      id,
-      body: {
-        contractAddress: failedOne.contractAddress,
-        contractType: failedOne.tokenType,
-        tokenId: failedOne.tokenId,
-      },
-      groupId: id,
-      deduplicationId: id,
-    };
-    await this.sendMessage(message);
-    this.logger.log(
-      `[CRON Token - ReSync] Successfully sent messages for token ${failedOne.contractAddress} - ${failedOne.tokenId}`,
-    );
-
-    // Mark this token
-    await this.nftTokenService.markAsProcessed(
-      failedOne.contractAddress,
-      failedOne.tokenId,
-    );
-    this.logger.log(
-      `[CRON Token - ReSync] Successfully processed token ${failedOne.contractAddress} - ${failedOne.tokenId}`,
-    );
+    for (let i = 0; i < failedOnes.length; i++) {
+      const failedOne = failedOnes[i];
+      
+      this.logger.log(
+        `[CRON Token - ReSync] Recevied metadata fetched failed token: ${failedOne.contractAddress} - ${failedOne.tokenId}`,
+      );
+  
+      // Prepare queue messages and sent as batch
+      const id = `${failedOne.contractAddress}-${failedOne.tokenId.substring(
+        0,
+        30,
+      )}`;
+      const message: Message<QueueMessageBody> = {
+        id,
+        body: {
+          contractAddress: failedOne.contractAddress,
+          contractType: failedOne.tokenType,
+          tokenId: failedOne.tokenId,
+        },
+        groupId: id,
+        deduplicationId: id,
+      };
+      await this.sendMessage(message);
+      this.logger.log(
+        `[CRON Token - ReSync] Successfully sent messages for token ${failedOne.contractAddress} - ${failedOne.tokenId}`,
+      );
+  
+      // Mark this token
+      await this.nftTokenService.markAsProcessed(
+        failedOne.contractAddress,
+        failedOne.tokenId,
+      );
+      this.logger.log(
+        `[CRON Token - ReSync] Successfully processed token ${failedOne.contractAddress} - ${failedOne.tokenId}`,
+      );
+    }
   }
 
   async sendMessage<T = any>(payload: Message<T> | Message<T>[]) {
