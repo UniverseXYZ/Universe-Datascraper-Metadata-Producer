@@ -68,10 +68,7 @@ export class NFTTokensService {
     );
   }
 
-  public async updateNeedToRefreshFlag(
-    contractAddress: string,
-    tokenId: string,
-  ) {
+  public async updateNeedToRefreshFlagBatch(tokens: NFTToken[]) {
     // Update needToRefresh flag to false
     // This used to unset metadata and related values however this had unwanted
     // UX where metadata was lost in the UI until the refresh had been completed
@@ -80,13 +77,19 @@ export class NFTTokensService {
     // to indicate that the metadata refresh is complete and its new values may
     // be used to update the media files. See m-4589
     //
-    await this.nftTokensModel.updateOne(
-      { contractAddress, tokenId },
-      {
-        needToRefresh: false,
-        sentForMediaAt: null,
-      },
-    );
+    await this.nftTokensModel.bulkWrite(tokens.map(x => ({
+      updateOne: {
+        filter: {
+          contractAddress: x.contractAddress,
+          tokenId: x.tokenId,        
+        },
+        update: {
+          needToRefresh: false,
+          sentForMediaAt: null,  
+        },
+        upsert: false
+      }
+    })));
   }
 
   public async markAsProcessedBatch(tokens: NFTToken[]) {

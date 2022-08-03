@@ -108,40 +108,42 @@ export class SqsProducerService implements OnModuleInit, SqsProducerHandler {
       return;
     }
 
+      // Mark needToRefresh to false
+    await this.nftTokenService.updateNeedToRefreshFlagBatch(needToRefreshTokens);
+
     for (let i = 0; i < needToRefreshTokens.length; i++) {
       const needToRefreshToken = needToRefreshTokens[i];
-      
-      this.logger.log(
-        `[CRON Token - Hard Refresh]: ${needToRefreshToken.contractAddress} - ${needToRefreshToken.tokenId}`,
-      );
-  
-      // Prepare queue messages and sent as batch
-      const id = `${
-        needToRefreshToken.contractAddress
-      }-${needToRefreshToken.tokenId.substring(0, 30)}`;
-      const message: Message<QueueMessageBody> = {
-        id,
-        body: {
-          contractAddress: needToRefreshToken.contractAddress,
-          contractType: needToRefreshToken.tokenType,
-          tokenId: needToRefreshToken.tokenId,
-        },
-        groupId: id,
-        deduplicationId: id,
-      };
-      await this.sendMessage(message);
-      this.logger.log(
-        `[CRON Token - Hard Refresh] Successfully sent messages for token ${needToRefreshToken.contractAddress} - ${needToRefreshToken.tokenId}`,
-      );
-  
-      // Mark needToRefresh to false
-      await this.nftTokenService.updateNeedToRefreshFlag(
-        needToRefreshToken.contractAddress,
-        needToRefreshToken.tokenId,
-      );
-      this.logger.log(
-        `[CRON Token - Hard Refresh] Successfully processed token ${needToRefreshToken.contractAddress} - ${needToRefreshToken.tokenId}`,
-      );
+      try {
+        this.logger.log(
+          `[CRON Token - Hard Refresh]: ${needToRefreshToken.contractAddress} - ${needToRefreshToken.tokenId}`,
+        );
+    
+        // Prepare queue messages and sent as batch
+        const id = `${
+          needToRefreshToken.contractAddress
+        }-${needToRefreshToken.tokenId.substring(0, 30)}`;
+        const message: Message<QueueMessageBody> = {
+          id,
+          body: {
+            contractAddress: needToRefreshToken.contractAddress,
+            contractType: needToRefreshToken.tokenType,
+            tokenId: needToRefreshToken.tokenId,
+          },
+          groupId: id,
+          deduplicationId: id,
+        };
+        await this.sendMessage(message);
+        this.logger.log(
+          `[CRON Token - Hard Refresh] Successfully sent messages for token ${needToRefreshToken.contractAddress} - ${needToRefreshToken.tokenId}`,
+        );
+    
+        this.logger.log(
+          `[CRON Token - Hard Refresh] Successfully processed token ${needToRefreshToken.contractAddress} - ${needToRefreshToken.tokenId}`,
+        );  
+      } catch(err) {
+        this.logger.error(`[CRON Token - Hard Refresh] Failed to refresh token ${needToRefreshToken.contractAddress} - ${needToRefreshToken.tokenId}. Error: `)
+        this.logger.error(err);
+      }
     }
   }
 
