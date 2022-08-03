@@ -56,11 +56,16 @@ export class NFTTokensService {
     );
   }
 
-  async findNeedToRefreshTokens(source: string) {
+  async findNeedToRefreshTokens(source: string, limit: number) {
     return await this.nftTokensModel.find({
       needToRefresh: true,
       source
-    });
+    },
+    {},
+    {
+      limit
+    },
+    );
   }
 
   public async updateNeedToRefreshFlag(

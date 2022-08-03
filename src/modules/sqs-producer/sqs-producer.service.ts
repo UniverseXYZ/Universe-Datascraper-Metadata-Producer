@@ -97,11 +97,11 @@ export class SqsProducerService implements OnModuleInit, SqsProducerHandler {
    * #2. send to queue
    * #3. mark needToRefresh to false
    */
-  @Cron(CronExpression.EVERY_MINUTE)
-  public async checkNeedToRefreshTokens() {
+   @Cron('*/5 * * * * *')
+   public async checkNeedToRefreshTokens() {
     // Check if there is any needToRefresh Token
     const needToRefreshTokens =
-      await this.nftTokenService.findNeedToRefreshTokens(this.source);
+      await this.nftTokenService.findNeedToRefreshTokens(this.source, this.queryLimit);
 
     if (!needToRefreshTokens || !needToRefreshTokens.length) {
       this.logger.log(`[CRON Token - Hard Refresh]: No tokens to refresh`)
