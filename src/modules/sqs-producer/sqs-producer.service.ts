@@ -9,6 +9,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { NFTTokensService } from '../nft-tokens/nft-tokens.service';
+import { Utils } from 'src/utils';
 
 @Injectable()
 export class SqsProducerService implements OnModuleInit, SqsProducerHandler {
@@ -16,7 +17,11 @@ export class SqsProducerService implements OnModuleInit, SqsProducerHandler {
   public source: string;
   public queryLimit: number;
   private readonly logger = new Logger(SqsProducerService.name);
-  
+  private isProcessing: boolean = false;
+  private isProcessing2: boolean = false;
+  private skippingCounter: number = 0;
+  private skippingCounter2: number = 0;
+
   constructor(
     private configService: ConfigService,
     private readonly nftTokenService: NFTTokensService,
@@ -44,11 +49,35 @@ export class SqsProducerService implements OnModuleInit, SqsProducerHandler {
    */
   @Cron('*/5 * * * * *')
   public async checkCollection() {
+    if (this.isProcessing) {
+      if (
+        this.skippingCounter <
+        Number(this.configService.get('skippingCounterLimit'))
+      ) {
+        this.skippingCounter++;
+        this.logger.log(
+          `[CRON Token] Task is in process, skipping (${this.skippingCounter}) ...`,
+        );
+      } else {
+        // when the counter reaches the limit, restart the pod.
+        this.logger.log(
+          `[CRON Token] Task skipping counter reached its limit. The process is not responsive, restarting...`,
+        );
+        Utils.shutdown();
+      }
+      return;
+    }
+
+    this.isProcessing = true;
+
     // Check if there is any unprocessed collection
     const unprocessed = await this.nftTokenService.findUnprocessed(this.source, this.queryLimit);
     if (!unprocessed || unprocessed.length === 0) {
+      this.isProcessing = false;
+      this.skippingCounter = 0;
       return;
     }
+
     this.logger.log(
       `[CRON Token] Find ${unprocessed.length} unprocessed tokens`,
     );
@@ -89,6 +118,8 @@ export class SqsProducerService implements OnModuleInit, SqsProducerHandler {
     // Mark this token
     await this.nftTokenService.markAsProcessedBatch(processedTokens);
     this.logger.log(`[CRON Token] Successfully marked tokens as processed`);
+    this.isProcessing = false;
+    this.skippingCounter = 0;
   }
 
   /**
@@ -99,12 +130,36 @@ export class SqsProducerService implements OnModuleInit, SqsProducerHandler {
    */
    @Cron('*/5 * * * * *')
    public async checkNeedToRefreshTokens() {
+    if (this.isProcessing2) {
+      if (
+        this.skippingCounter2 <
+        Number(this.configService.get('skippingCounterLimit'))
+      ) {
+        this.skippingCounter2++;
+        this.logger.log(
+          `[CRON Token - Hard Refresh] Task is in process, skipping (${this.skippingCounter2}) ...`,
+        );
+      } else {
+        // when the counter reaches the limit, restart the pod.
+        this.logger.log(
+          `[CRON Token - Hard Refresh] Task skipping counter reached its limit. The process is not responsive, restarting...`,
+        );
+        Utils.shutdown();
+      }
+
+      return;
+    }
+
+    this.isProcessing2 = true;
+
     // Check if there is any needToRefresh Token
     const needToRefreshTokens =
       await this.nftTokenService.findNeedToRefreshTokens(this.source, this.queryLimit);
 
     if (!needToRefreshTokens || !needToRefreshTokens.length) {
-      this.logger.log(`[CRON Token - Hard Refresh]: No tokens to refresh`)
+      this.logger.log(`[CRON Token - Hard Refresh]: No tokens to refresh`);
+      this.isProcessing2 = false;
+      this.skippingCounter2 = 0;
       return;
     }
 
@@ -145,6 +200,9 @@ export class SqsProducerService implements OnModuleInit, SqsProducerHandler {
         this.logger.error(err);
       }
     }
+
+    this.isProcessing2 = false;
+    this.skippingCounter2 = 0;
   }
 
   /**

@@ -23,4 +23,5 @@ export default () => ({
   },
   etherscan_api_key: process.env.ETHERSCAN_API_KEY,
   query_limit: process.env.QUERY_LIMIT,
+  skippingCounterLimit: process.env.SKIPPING_COUNTER_LIMIT,
 });
